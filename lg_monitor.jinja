@@ -1,0 +1,36 @@
+{#-
+  HACS custom templates file.
+
+  Import example:
+    {% from 'lg_monitor.jinja' import hexhash, frame_average_hex %}
+-#}
+
+{% macro _hex6(value) -%}
+  {%- set v = (value|string)|lower|replace('#', '') -%}
+  {{- ('000000' ~ v)[-6:] -}}
+{%- endmacro %}
+
+{% macro hexhash(value) -%}
+  {{- '#' ~ _hex6(value) -}}
+{%- endmacro %}
+
+{% macro frame_average_hex(frame) -%}
+  {%- if frame is not iterable or frame is string -%}
+    {{- '' -}}
+  {%- else -%}
+    {%- set ns = namespace(r=0, g=0, b=0, n=0) -%}
+    {%- for c in frame -%}
+      {%- set h = _hex6(c) -%}
+      {%- set ns.r = ns.r + (h[0:2] | int(base=16)) -%}
+      {%- set ns.g = ns.g + (h[2:4] | int(base=16)) -%}
+      {%- set ns.b = ns.b + (h[4:6] | int(base=16)) -%}
+      {%- set ns.n = ns.n + 1 -%}
+    {%- endfor -%}
+    {%- if ns.n == 0 -%}
+      {{- '' -}}
+    {%- else -%}
+      {{- '#%02x%02x%02x' | format((ns.r / ns.n) | round | int, (ns.g / ns.n) | round | int, (ns.b / ns.n) | round | int) -}}
+    {%- endif -%}
+  {%- endif -%}
+{%- endmacro %}
+

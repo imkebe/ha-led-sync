@@ -1,0 +1,51 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "LG Monitor MQTT",
+        "description": "Configure the topics exposed by the tray application.",
+        "data": {
+          "name": "Name",
+          "command_topic": "Zen command topic",
+          "state_topic": "State/availability topic",
+          "led_in_topic": "LED input topic",
+          "led_out_topic": "LED output topic",
+          "led_count": "LED count",
+          "brightness_levels": "Brightness steps",
+          "enable_state_sensor": "Create LED frame sensor",
+          "mode": "Mode"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "LG Monitor options",
+        "description": "Adjust MQTT topics or disable the state sensor.",
+        "data": {
+          "command_topic": "Zen command topic",
+          "state_topic": "State/availability topic",
+          "led_in_topic": "LED input topic",
+          "led_out_topic": "LED output topic",
+          "led_count": "LED count",
+          "brightness_levels": "Brightness steps",
+          "enable_state_sensor": "Create LED frame sensor",
+          "mode": "Mode",
+          "group_1_name": "Group 1 name",
+          "group_1_entities": "Group 1 lights",
+          "group_1_leds": "Group 1 LED indexes",
+          "group_1_strategy": "Group 1 mapping",
+          "group_2_name": "Group 2 name",
+          "group_2_entities": "Group 2 lights",
+          "group_2_leds": "Group 2 LED indexes",
+          "group_2_strategy": "Group 2 mapping",
+          "group_3_name": "Group 3 name",
+          "group_3_entities": "Group 3 lights",
+          "group_3_leds": "Group 3 LED indexes",
+          "group_3_strategy": "Group 3 mapping"
+        }
+      }
+    }
+  }
+}
