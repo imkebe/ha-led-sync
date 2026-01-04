@@ -9,8 +9,8 @@ import random
 from typing import Any, Iterable, Tuple
 
 from homeassistant.components import mqtt
+from homeassistant.components.light import ATTR_BRIGHTNESS, ATTR_HS_COLOR, ATTR_RGB_COLOR
 from homeassistant.components.mqtt.models import ReceiveMessage
-from homeassistant.const import ATTR_BRIGHTNESS, ATTR_HS_COLOR, ATTR_RGB_COLOR
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import dispatcher
 from homeassistant.helpers.event import async_track_state_change_event
