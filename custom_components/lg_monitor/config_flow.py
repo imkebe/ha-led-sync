@@ -44,13 +44,16 @@ class LgMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             data = dict(user_input)
-            data[CONF_COMMAND_TOPIC] = data[CONF_COMMAND_TOPIC].strip()
-            state_topic = data.get(CONF_STATE_TOPIC, "")
-            data[CONF_STATE_TOPIC] = state_topic.strip()
+            name = (data.get(CONF_NAME) or "").strip() or DEFAULT_NAME
+            data[CONF_NAME] = name
+            data[CONF_COMMAND_TOPIC] = (data.get(CONF_COMMAND_TOPIC) or "").strip()
+            data[CONF_STATE_TOPIC] = (data.get(CONF_STATE_TOPIC) or "").strip()
+            data[CONF_LED_IN_TOPIC] = (data.get(CONF_LED_IN_TOPIC) or "").strip()
+            data[CONF_LED_OUT_TOPIC] = (data.get(CONF_LED_OUT_TOPIC) or "").strip()
             unique_id = data[CONF_COMMAND_TOPIC]
             await self.async_set_unique_id(unique_id)
             self._abort_if_unique_id_configured()
-            return self.async_create_entry(title=data[CONF_NAME], data=data)
+            return self.async_create_entry(title=name, data=data)
 
         return self.async_show_form(
             step_id="user",
@@ -171,7 +174,7 @@ class LgMonitorOptionsFlow(config_entries.OptionsFlow):
     async def async_step_groups(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         return self.async_show_menu(
             step_id="groups",
-            menu_options=["add_group", "edit_group", "remove_group", "back"],
+            menu_options=["add_group", "edit_group", "remove_group", "finish", "back"],
         )
 
     async def async_step_add_group(self, user_input: dict[str, Any] | None = None) -> FlowResult:

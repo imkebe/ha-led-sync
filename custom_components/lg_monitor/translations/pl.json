@@ -1,0 +1,101 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "LG Monitor MQTT",
+        "description": "Skonfiguruj tematy udostępniane przez aplikację w zasobniku.",
+        "data": {
+          "name": "Nazwa",
+          "command_topic": "Temat poleceń Zen",
+          "state_topic": "Temat stanu/dostępności",
+          "led_in_topic": "Temat wejściowy LED",
+          "led_out_topic": "Temat wyjściowy LED",
+          "led_count": "Liczba LED",
+          "brightness_levels": "Kroki jasności",
+          "enable_state_sensor": "Utwórz czujnik ramki LED",
+          "mode": "Tryb"
+        }
+      }
+    }
+  },
+  "options": {
+    "error": {
+      "group_entities_required": "Wybierz co najmniej jedno światło.",
+      "group_leds_required": "Wprowadź jeden lub więcej indeksów LED.",
+      "group_name_required": "Wprowadź nazwę grupy.",
+      "invalid_group": "Wybrano nieprawidłową grupę.",
+      "no_groups": "Nie skonfigurowano jeszcze żadnych grup.",
+      "one_to_one_mismatch": "Dla mapowania 1:1 liczba świateł musi odpowiadać liczbie indeksów LED."
+    },
+    "step": {
+      "init": {
+        "title": "Opcje LG Monitor",
+        "description": "Zmień ustawienia integracji i zarządzaj grupami.",
+        "menu_options": {
+          "settings": "Ustawienia",
+          "groups": "Grupy",
+          "finish": "Zapisz"
+        }
+      },
+      "settings": {
+        "title": "Ustawienia LG Monitor",
+        "description": "Zmień tematy MQTT lub wyłącz czujnik stanu.",
+        "data": {
+          "command_topic": "Temat poleceń Zen",
+          "state_topic": "Temat stanu/dostępności",
+          "led_in_topic": "Temat wejściowy LED",
+          "led_out_topic": "Temat wyjściowy LED",
+          "led_count": "Liczba LED",
+          "brightness_levels": "Kroki jasności",
+          "enable_state_sensor": "Utwórz czujnik ramki LED",
+          "mode": "Tryb"
+        }
+      },
+      "groups": {
+        "title": "Grupy",
+        "description": "Zarządzaj grupami mapowania LED/świateł.",
+        "menu_options": {
+          "add_group": "Dodaj grupę",
+          "edit_group": "Edytuj grupę",
+          "remove_group": "Usuń grupę",
+          "finish": "Zapisz",
+          "back": "Wstecz"
+        }
+      },
+      "add_group": {
+        "title": "Dodaj grupę",
+        "description": "Utwórz nową grupę mapowania.",
+        "data": {
+          "group_name": "Nazwa grupy",
+          "group_entities": "Światła",
+          "group_leds": "Indeksy LED",
+          "group_strategy": "Mapowanie"
+        }
+      },
+      "edit_group": {
+        "title": "Edytuj grupę",
+        "description": "Wybierz grupę do edycji.",
+        "data": {
+          "group_index": "Grupa"
+        }
+      },
+      "edit_group_form": {
+        "title": "Edytuj grupę",
+        "description": "Zaktualizuj definicję grupy.",
+        "data": {
+          "group_name": "Nazwa grupy",
+          "group_entities": "Światła",
+          "group_leds": "Indeksy LED",
+          "group_strategy": "Mapowanie"
+        }
+      },
+      "remove_group": {
+        "title": "Usuń grupę",
+        "description": "Wybierz grupę do usunięcia.",
+        "data": {
+          "group_index": "Grupa"
+        }
+      }
+    }
+  }
+}

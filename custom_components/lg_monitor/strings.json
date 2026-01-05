@@ -58,6 +58,7 @@
           "add_group": "Add group",
           "edit_group": "Edit group",
           "remove_group": "Remove group",
+          "finish": "Save",
           "back": "Back"
         }
       },

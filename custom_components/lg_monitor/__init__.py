@@ -5,7 +5,7 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN, PLATFORMS
+from .const import DEFAULT_NAME, DOMAIN, PLATFORMS
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -17,6 +17,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Create configured entities and MQTT subscriptions."""
     from .coordinator import LgMonitorCoordinator
+
+    if not entry.title or not entry.title.strip():
+        hass.config_entries.async_update_entry(entry, title=DEFAULT_NAME)
 
     hass.data.setdefault(DOMAIN, {})
     coordinator = LgMonitorCoordinator(hass, entry)

@@ -38,6 +38,7 @@ from .const import (
     MODE_BROADCAST,
     MODE_LISTEN,
     SIGNAL_COMMAND,
+    SIGNAL_GROUPS,
     SIGNAL_STATE_FRAME,
 )
 
@@ -86,6 +87,9 @@ class LgMonitorCoordinator:
         self._groups = self._normalise_groups(self._get_entry_value(CONF_GROUPS, []))
         self._command_signal = f"{SIGNAL_COMMAND}_{entry.entry_id}"
         self._state_signal = f"{SIGNAL_STATE_FRAME}_{entry.entry_id}"
+        self._groups_signal = f"{SIGNAL_GROUPS}_{entry.entry_id}"
+        self._group_rgb: list[tuple[int, int, int] | None] = [None] * len(self._groups)
+        self._group_brightness: list[int | None] = [None] * len(self._groups)
 
     def _get_entry_value(self, key: str, default: Any) -> Any:
         if key in self.entry.options:
@@ -169,6 +173,45 @@ class LgMonitorCoordinator:
     def state_signal(self) -> str:
         return self._state_signal
 
+    @property
+    def groups_signal(self) -> str:
+        return self._groups_signal
+
+    def group_rgb(self, group_index: int) -> tuple[int, int, int] | None:
+        if group_index < 0 or group_index >= len(self._group_rgb):
+            return None
+        return self._group_rgb[group_index]
+
+    def group_brightness(self, group_index: int) -> int | None:
+        if group_index < 0 or group_index >= len(self._group_brightness):
+            return None
+        return self._group_brightness[group_index]
+
+    async def async_set_group_colour(
+        self,
+        group_index: int,
+        rgb: tuple[int, int, int],
+        brightness: int | None = None,
+    ) -> None:
+        if group_index < 0 or group_index >= len(self._groups):
+            return
+        group = self._groups[group_index]
+        for entity_id in group.entities:
+            await self._call_light(entity_id, rgb, brightness=brightness)
+        self._set_group_state(group_index, rgb, brightness=brightness)
+        dispatcher.async_dispatcher_send(self.hass, self._groups_signal)
+
+    async def async_turn_off_group(self, group_index: int) -> None:
+        if group_index < 0 or group_index >= len(self._groups):
+            return
+        group = self._groups[group_index]
+        for entity_id in group.entities:
+            await self.hass.services.async_call(
+                "light", "turn_off", {"entity_id": entity_id}, blocking=False
+            )
+        self._set_group_state(group_index, (0, 0, 0), brightness=0)
+        dispatcher.async_dispatcher_send(self.hass, self._groups_signal)
+
     async def async_setup(self) -> None:
         """Start listening for incoming frames and state changes."""
         if (self.state_enabled or self._mode == MODE_LISTEN) and not self._frame_unsub:
@@ -182,6 +225,8 @@ class LgMonitorCoordinator:
                 )
         if self._mode == MODE_BROADCAST and self._groups:
             await self._setup_broadcast_listener()
+            self._update_group_states_from_lights()
+            dispatcher.async_dispatcher_send(self.hass, self._groups_signal)
 
     async def async_unload(self) -> None:
         """Tear down MQTT subscriptions."""
@@ -192,6 +237,8 @@ class LgMonitorCoordinator:
             self._state_listener_unsub()
             self._state_listener_unsub = None
         self._frame = None
+        self._group_rgb = []
+        self._group_brightness = []
 
     async def async_publish_colour(
         self,
@@ -284,11 +331,16 @@ class LgMonitorCoordinator:
         if not colours:
             return
         rgb_frame = [self._hex_to_rgb(col) for col in colours]
-        for group in self._groups:
+        for group_index, group in enumerate(self._groups):
             led_indices = [idx for idx in group.led_indices if idx < len(rgb_frame)]
             if not led_indices:
+                self._set_group_state(group_index, None)
                 continue
             if group.strategy == "one_to_one":
+                subset = [rgb_frame[idx] for idx in led_indices]
+                group_colour = self._aggregate_colour(subset, "average")
+                if group_colour:
+                    self._set_group_state(group_index, group_colour)
                 for entity_id, led_idx in zip(group.entities, led_indices):
                     colour = rgb_frame[led_idx]
                     await self._call_light(entity_id, colour)
@@ -296,15 +348,20 @@ class LgMonitorCoordinator:
             subset = [rgb_frame[idx] for idx in led_indices]
             colour = self._aggregate_colour(subset, group.strategy)
             if not colour:
+                self._set_group_state(group_index, None)
                 continue
+            self._set_group_state(group_index, colour)
             for entity_id in group.entities:
                 await self._call_light(entity_id, colour)
+        dispatcher.async_dispatcher_send(self.hass, self._groups_signal)
 
     async def _handle_broadcast_state_change(self) -> None:
         if self._mode != MODE_BROADCAST or not self._groups:
             return
         if not self._led_out_topic:
             return
+        self._update_group_states_from_lights()
+        dispatcher.async_dispatcher_send(self.hass, self._groups_signal)
         frame = self._build_frame_from_groups()
         if not frame:
             return
@@ -351,8 +408,14 @@ class LgMonitorCoordinator:
             encoding=None,
         )
 
-    async def _call_light(self, entity_id: str, colour: tuple[int, int, int]) -> None:
-        brightness = self._rgb_to_brightness(colour)
+    async def _call_light(
+        self,
+        entity_id: str,
+        colour: tuple[int, int, int],
+        brightness: int | None = None,
+    ) -> None:
+        if brightness is None:
+            brightness = self._rgb_to_brightness(colour)
         service_data = {
             "entity_id": entity_id,
             ATTR_RGB_COLOR: colour,
@@ -410,3 +473,35 @@ class LgMonitorCoordinator:
             return (int(colour[0]), int(colour[1]), int(colour[2]))
         except Exception:
             return None
+
+    def _set_group_state(
+        self,
+        group_index: int,
+        rgb: tuple[int, int, int] | None,
+        brightness: int | None = None,
+    ) -> None:
+        if group_index < 0 or group_index >= len(self._group_rgb):
+            return
+        if rgb is None:
+            self._group_rgb[group_index] = None
+            self._group_brightness[group_index] = None
+            return
+        self._group_rgb[group_index] = rgb
+        if brightness is None:
+            self._group_brightness[group_index] = self._rgb_to_brightness(rgb)
+        else:
+            self._group_brightness[group_index] = max(0, min(255, int(brightness)))
+
+    def _update_group_states_from_lights(self) -> None:
+        for group_index, group in enumerate(self._groups):
+            colours = [self._get_entity_colour(ent) for ent in group.entities]
+            colours = [c for c in colours if c is not None]
+            if not colours:
+                self._set_group_state(group_index, None)
+                continue
+            strategy = "average" if group.strategy == "one_to_one" else group.strategy
+            colour = self._aggregate_colour(colours, strategy)
+            if colour is None:
+                self._set_group_state(group_index, None)
+                continue
+            self._set_group_state(group_index, colour)

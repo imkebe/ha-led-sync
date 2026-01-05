@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
-from .const import DOMAIN
+from .const import DEFAULT_NAME, DOMAIN
 from .coordinator import LgMonitorCoordinator
 
 
@@ -60,7 +60,7 @@ class LgMonitorFrameSensor(SensorEntity):
         return DeviceInfo(
             identifiers={(DOMAIN, self._entry.entry_id)},
             manufacturer="LG",
-            name=self._entry.title,
+            name=self._entry.title or DEFAULT_NAME,
             model="Monitor LED Controller",
         )
 

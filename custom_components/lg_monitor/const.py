@@ -30,3 +30,4 @@ DEFAULT_MODE = MODE_LISTEN
 
 SIGNAL_COMMAND = "lg_monitor_command"
 SIGNAL_STATE_FRAME = "lg_monitor_state_frame"
+SIGNAL_GROUPS = "lg_monitor_groups"
