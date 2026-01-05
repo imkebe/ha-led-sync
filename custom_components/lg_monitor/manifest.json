@@ -1,7 +1,7 @@
 {
   "domain": "lg_monitor",
   "name": "LG Monitor LEDs",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "documentation": "https://git.agnt.sh/kebe/ha-led-sync/src/branch/main/docs/homeassistant.md",
   "issue_tracker": "https://git.agnt.sh/kebe/ha-led-sync/issues",
   "dependencies": ["mqtt"],

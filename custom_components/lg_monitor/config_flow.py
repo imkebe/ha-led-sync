@@ -17,6 +17,7 @@ from .const import (
     CONF_BRIGHTNESS_CUTOFF,
     CONF_BRIGHTNESS_GAIN,
     CONF_COMMAND_TOPIC,
+    CONF_COMMAND_SPACING,
     CONF_CUTOFF_BLUE,
     CONF_CUTOFF_GREEN,
     CONF_CUTOFF_RED,
@@ -35,6 +36,7 @@ from .const import (
     DEFAULT_BRIGHTNESS_CUTOFF,
     DEFAULT_BRIGHTNESS_GAIN,
     DEFAULT_COMMAND_TOPIC,
+    DEFAULT_COMMAND_SPACING,
     DEFAULT_CUTOFF_BLUE,
     DEFAULT_CUTOFF_GREEN,
     DEFAULT_CUTOFF_RED,
@@ -93,6 +95,17 @@ class LgMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             min=0.0,
                             max=5.0,
                             step=0.05,
+                            unit_of_measurement="s",
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(
+                        CONF_COMMAND_SPACING, default=DEFAULT_COMMAND_SPACING
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0.0,
+                            max=0.5,
+                            step=0.01,
                             unit_of_measurement="s",
                             mode=selector.NumberSelectorMode.SLIDER,
                         )
@@ -196,6 +209,7 @@ class LgMonitorOptionsFlow(config_entries.OptionsFlow):
             CONF_LED_COUNT: existing.get(CONF_LED_COUNT, DEFAULT_LED_COUNT),
             CONF_BRIGHTNESS_LEVELS: existing.get(CONF_BRIGHTNESS_LEVELS, DEFAULT_BRIGHTNESS_LEVELS),
             CONF_SYNC_INTERVAL: existing.get(CONF_SYNC_INTERVAL, DEFAULT_SYNC_INTERVAL),
+            CONF_COMMAND_SPACING: existing.get(CONF_COMMAND_SPACING, DEFAULT_COMMAND_SPACING),
             CONF_TRANSITION: existing.get(CONF_TRANSITION, DEFAULT_TRANSITION),
             CONF_BRIGHTNESS_CUTOFF: existing.get(
                 CONF_BRIGHTNESS_CUTOFF, DEFAULT_BRIGHTNESS_CUTOFF
@@ -238,6 +252,9 @@ class LgMonitorOptionsFlow(config_entries.OptionsFlow):
             )
             self._options[CONF_SYNC_INTERVAL] = float(
                 data.get(CONF_SYNC_INTERVAL, DEFAULT_SYNC_INTERVAL)
+            )
+            self._options[CONF_COMMAND_SPACING] = float(
+                data.get(CONF_COMMAND_SPACING, DEFAULT_COMMAND_SPACING)
             )
             self._options[CONF_TRANSITION] = float(data.get(CONF_TRANSITION, DEFAULT_TRANSITION))
             self._options[CONF_BRIGHTNESS_CUTOFF] = int(
@@ -298,6 +315,18 @@ class LgMonitorOptionsFlow(config_entries.OptionsFlow):
                             min=0.0,
                             max=5.0,
                             step=0.05,
+                            unit_of_measurement="s",
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(
+                        CONF_COMMAND_SPACING,
+                        default=self._options.get(CONF_COMMAND_SPACING, DEFAULT_COMMAND_SPACING),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0.0,
+                            max=0.5,
+                            step=0.01,
                             unit_of_measurement="s",
                             mode=selector.NumberSelectorMode.SLIDER,
                         )

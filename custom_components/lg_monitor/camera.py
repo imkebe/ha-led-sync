@@ -76,6 +76,7 @@ class LgMonitorGroupPreviewCamera(Camera):
             "entities": list(self._group.entities),
             "led_indices": list(self._group.led_indices),
             "sync_interval": self._coordinator.sync_interval,
+            "command_spacing": self._coordinator.command_spacing,
             "transition": self._coordinator.transition,
             "brightness_cutoff": self._coordinator.brightness_cutoff,
             "cutoff_red": self._coordinator.cutoff_red,
@@ -206,6 +207,7 @@ class LgMonitorCalibrationChartCamera(Camera):
     def extra_state_attributes(self) -> dict[str, object]:
         return {
             "sync_interval": self._coordinator.sync_interval,
+            "command_spacing": self._coordinator.command_spacing,
             "transition": self._coordinator.transition,
             "brightness_cutoff": self._coordinator.brightness_cutoff,
             "cutoff_red": self._coordinator.cutoff_red,

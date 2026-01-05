@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import suppress
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -29,6 +30,7 @@ from .const import (
     CONF_BRIGHTNESS_CUTOFF,
     CONF_BRIGHTNESS_GAIN,
     CONF_COMMAND_TOPIC,
+    CONF_COMMAND_SPACING,
     CONF_CUTOFF_BLUE,
     CONF_CUTOFF_GREEN,
     CONF_CUTOFF_RED,
@@ -47,6 +49,7 @@ from .const import (
     DEFAULT_BRIGHTNESS_CUTOFF,
     DEFAULT_BRIGHTNESS_GAIN,
     DEFAULT_COMMAND_TOPIC,
+    DEFAULT_COMMAND_SPACING,
     DEFAULT_CUTOFF_BLUE,
     DEFAULT_CUTOFF_GREEN,
     DEFAULT_CUTOFF_RED,
@@ -88,6 +91,14 @@ class LightGroup:
     strategy: str
 
 
+@dataclass(slots=True)
+class LightServiceCommand:
+    """Queued service call to reduce bursts."""
+
+    service: str
+    data: dict[str, Any]
+
+
 class LgMonitorCoordinator:
     """Orchestrates MQTT publish/subscribe for this config entry."""
 
@@ -97,6 +108,11 @@ class LgMonitorCoordinator:
         self._frame_unsub: Callable[[], None] | None = None
         self._state_listener_unsub: Callable[[], None] | None = None
         self._broadcast_pending: asyncio.Task | None = None
+        self._command_worker: asyncio.Task | None = None
+        self._command_lock = asyncio.Lock()
+        self._command_queue: asyncio.Queue[str] = asyncio.Queue()
+        self._queued_entities: set[str] = set()
+        self._pending_light_commands: dict[str, LightServiceCommand] = {}
         self._frame: LgFrameState | None = None
         self._rgb_command: tuple[int, int, int] | None = None
         self._brightness_level: int | None = None
@@ -110,6 +126,10 @@ class LgMonitorCoordinator:
         )
         self._sync_interval = max(
             0.0, float(self._get_entry_value(CONF_SYNC_INTERVAL, DEFAULT_SYNC_INTERVAL))
+        )
+        self._command_spacing = max(
+            0.0,
+            float(self._get_entry_value(CONF_COMMAND_SPACING, DEFAULT_COMMAND_SPACING)),
         )
         self._transition = max(
             0.0, float(self._get_entry_value(CONF_TRANSITION, DEFAULT_TRANSITION))
@@ -217,6 +237,10 @@ class LgMonitorCoordinator:
     @property
     def sync_interval(self) -> float:
         return float(self._sync_interval)
+
+    @property
+    def command_spacing(self) -> float:
+        return float(self._command_spacing)
 
     @property
     def transition(self) -> float:
@@ -327,6 +351,7 @@ class LgMonitorCoordinator:
                     self.hass,
                     topic,
                     self._async_handle_frame,
+                    qos=0,
                     encoding=None,
                 )
         if self._mode == MODE_BROADCAST and self._groups:
@@ -345,10 +370,56 @@ class LgMonitorCoordinator:
         if self._broadcast_pending and not self._broadcast_pending.done():
             self._broadcast_pending.cancel()
         self._broadcast_pending = None
+        if self._command_worker and not self._command_worker.done():
+            self._command_worker.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._command_worker
+        self._command_worker = None
+        async with self._command_lock:
+            self._pending_light_commands.clear()
+            self._queued_entities.clear()
+            while not self._command_queue.empty():
+                with suppress(asyncio.QueueEmpty):
+                    self._command_queue.get_nowait()
+                    self._command_queue.task_done()
         self._frame = None
         self._group_rgb = []
         self._group_brightness = []
         self._last_listen_update = []
+
+    def _ensure_command_worker(self) -> None:
+        if self._command_worker and not self._command_worker.done():
+            return
+        self._command_worker = self.hass.async_create_task(self._async_command_worker())
+
+    async def _queue_light_service(self, entity_id: str, command: LightServiceCommand) -> None:
+        self._ensure_command_worker()
+        async with self._command_lock:
+            self._pending_light_commands[entity_id] = command
+            if entity_id not in self._queued_entities:
+                self._queued_entities.add(entity_id)
+                self._command_queue.put_nowait(entity_id)
+
+    async def _async_command_worker(self) -> None:
+        try:
+            while True:
+                entity_id = await self._command_queue.get()
+                try:
+                    async with self._command_lock:
+                        self._queued_entities.discard(entity_id)
+                        command = self._pending_light_commands.pop(entity_id, None)
+                    if not command:
+                        continue
+                    await self.hass.services.async_call(
+                        "light", command.service, command.data, blocking=False
+                    )
+                    spacing = self._command_spacing
+                    if spacing > 0:
+                        await asyncio.sleep(spacing + random.uniform(0.0, spacing * 0.25))
+                finally:
+                    self._command_queue.task_done()
+        except asyncio.CancelledError:
+            return
 
     async def async_publish_colour(
         self,
@@ -376,7 +447,14 @@ class LgMonitorCoordinator:
                     "brightness": brightness_level,
                 }
             )
-        await mqtt.async_publish(self.hass, self._command_topic, payload)
+        await mqtt.async_publish(
+            self.hass,
+            self._command_topic,
+            payload,
+            qos=0,
+            retain=False,
+            encoding="utf-8",
+        )
         self._rgb_command = rgb_tuple
         self._brightness_level = brightness_level
         dispatcher.async_dispatcher_send(self.hass, self._command_signal)
@@ -619,7 +697,9 @@ class LgMonitorCoordinator:
             service_data[ATTR_BRIGHTNESS] = max(0, min(255, int(brightness)))
         if transition and transition > 0:
             service_data[ATTR_TRANSITION] = float(transition)
-        await self.hass.services.async_call("light", "turn_on", service_data, blocking=False)
+        await self._queue_light_service(
+            entity_id, LightServiceCommand(service="turn_on", data=service_data)
+        )
 
     async def _call_light_intensity(
         self,
@@ -643,7 +723,9 @@ class LgMonitorCoordinator:
         }
         if transition and transition > 0:
             service_data[ATTR_TRANSITION] = float(transition)
-        await self.hass.services.async_call("light", "turn_on", service_data, blocking=False)
+        await self._queue_light_service(
+            entity_id, LightServiceCommand(service="turn_on", data=service_data)
+        )
 
     async def _turn_off_light(
         self,
@@ -651,10 +733,17 @@ class LgMonitorCoordinator:
         *,
         transition: float | None = None,
     ) -> None:
+        if isinstance(entity_id, list):
+            for ent in entity_id:
+                await self._turn_off_light(ent, transition=transition)
+            return
+
         data: dict[str, Any] = {"entity_id": entity_id}
         if transition and transition > 0:
             data[ATTR_TRANSITION] = float(transition)
-        await self.hass.services.async_call("light", "turn_off", data, blocking=False)
+        await self._queue_light_service(
+            entity_id, LightServiceCommand(service="turn_off", data=data)
+        )
 
     def _aggregate_colour(
         self, colours: Iterable[tuple[int, int, int]], strategy: str
