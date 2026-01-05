@@ -13,6 +13,7 @@
           "led_count": "LED count",
           "brightness_levels": "Brightness steps",
           "sync_interval": "Update interval",
+          "transition": "Transition time",
           "enable_state_sensor": "Create LED frame sensor",
           "mode": "Mode"
         }
@@ -49,6 +50,7 @@
           "led_count": "LED count",
           "brightness_levels": "Brightness steps",
           "sync_interval": "Update interval",
+          "transition": "Transition time",
           "enable_state_sensor": "Create LED frame sensor",
           "mode": "Mode"
         }

@@ -12,6 +12,7 @@ CONF_LED_OUT_TOPIC = "led_out_topic"
 CONF_LED_COUNT = "led_count"
 CONF_BRIGHTNESS_LEVELS = "brightness_levels"
 CONF_SYNC_INTERVAL = "sync_interval"
+CONF_TRANSITION = "transition"
 CONF_ENABLE_STATE_SENSOR = "enable_state_sensor"
 CONF_MODE = "mode"
 CONF_GROUPS = "groups"
@@ -28,6 +29,7 @@ DEFAULT_LED_OUT_TOPIC = "lg/monitor/out"
 DEFAULT_LED_COUNT = 48
 DEFAULT_BRIGHTNESS_LEVELS = 12
 DEFAULT_SYNC_INTERVAL = 0.1
+DEFAULT_TRANSITION = 0.0
 DEFAULT_MODE = MODE_LISTEN
 
 SIGNAL_COMMAND = "lg_monitor_command"

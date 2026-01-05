@@ -11,7 +11,12 @@ import time
 from typing import Any, Iterable, Tuple
 
 from homeassistant.components import mqtt
-from homeassistant.components.light import ATTR_BRIGHTNESS, ATTR_HS_COLOR, ATTR_RGB_COLOR
+from homeassistant.components.light import (
+    ATTR_BRIGHTNESS,
+    ATTR_HS_COLOR,
+    ATTR_RGB_COLOR,
+    ATTR_TRANSITION,
+)
 from homeassistant.components.mqtt.models import ReceiveMessage
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import dispatcher
@@ -30,6 +35,7 @@ from .const import (
     CONF_MODE,
     CONF_STATE_TOPIC,
     CONF_SYNC_INTERVAL,
+    CONF_TRANSITION,
     DEFAULT_BRIGHTNESS_LEVELS,
     DEFAULT_COMMAND_TOPIC,
     DEFAULT_LED_COUNT,
@@ -38,6 +44,7 @@ from .const import (
     DEFAULT_MODE,
     DEFAULT_STATE_TOPIC,
     DEFAULT_SYNC_INTERVAL,
+    DEFAULT_TRANSITION,
     DOMAIN,
     MODE_BROADCAST,
     MODE_LISTEN,
@@ -89,6 +96,9 @@ class LgMonitorCoordinator:
         )
         self._sync_interval = max(
             0.0, float(self._get_entry_value(CONF_SYNC_INTERVAL, DEFAULT_SYNC_INTERVAL))
+        )
+        self._transition = max(
+            0.0, float(self._get_entry_value(CONF_TRANSITION, DEFAULT_TRANSITION))
         )
         self._state_enabled = self._get_entry_value(CONF_ENABLE_STATE_SENSOR, True)
         self._mode = self._get_entry_value(CONF_MODE, DEFAULT_MODE)
@@ -157,6 +167,10 @@ class LgMonitorCoordinator:
         return float(self._sync_interval)
 
     @property
+    def transition(self) -> float:
+        return float(self._transition)
+
+    @property
     def state_enabled(self) -> bool:
         return bool(self._led_in_topic and self._state_enabled)
 
@@ -220,9 +234,12 @@ class LgMonitorCoordinator:
         if group_index < 0 or group_index >= len(self._groups):
             return
         group = self._groups[group_index]
+        service_data = {"entity_id": group.entities}
+        if self._transition > 0:
+            service_data[ATTR_TRANSITION] = self._transition
         for entity_id in group.entities:
             await self.hass.services.async_call(
-                "light", "turn_off", {"entity_id": entity_id}, blocking=False
+                "light", "turn_off", service_data | {"entity_id": entity_id}, blocking=False
             )
         self._set_group_state(group_index, (0, 0, 0), brightness=0)
         self._dispatch_groups_signal(time.monotonic(), force=True)
@@ -454,7 +471,10 @@ class LgMonitorCoordinator:
         entity_id: str,
         colour: tuple[int, int, int],
         brightness: int | None = None,
+        transition: float | None = None,
     ) -> None:
+        if transition is None:
+            transition = self._transition
         if brightness is None:
             brightness = self._rgb_to_brightness(colour)
         service_data = {
@@ -463,6 +483,8 @@ class LgMonitorCoordinator:
         }
         if brightness:
             service_data[ATTR_BRIGHTNESS] = brightness
+        if transition and transition > 0:
+            service_data[ATTR_TRANSITION] = float(transition)
         await self.hass.services.async_call(
             "light", "turn_on", service_data, blocking=False
         )

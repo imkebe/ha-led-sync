@@ -71,6 +71,7 @@ class LgMonitorGroupPreviewCamera(Camera):
             "entities": list(self._group.entities),
             "led_indices": list(self._group.led_indices),
             "sync_interval": self._coordinator.sync_interval,
+            "transition": self._coordinator.transition,
             "colour": colour_hex,
             "last_updated": self._last_updated.isoformat(),
         }

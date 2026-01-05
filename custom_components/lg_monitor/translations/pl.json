@@ -13,6 +13,7 @@
           "led_count": "Liczba LED",
           "brightness_levels": "Kroki jasności",
           "sync_interval": "Interwał aktualizacji",
+          "transition": "Czas przejścia",
           "enable_state_sensor": "Utwórz czujnik ramki LED",
           "mode": "Tryb"
         }
@@ -49,6 +50,7 @@
           "led_count": "Liczba LED",
           "brightness_levels": "Kroki jasności",
           "sync_interval": "Interwał aktualizacji",
+          "transition": "Czas przejścia",
           "enable_state_sensor": "Utwórz czujnik ramki LED",
           "mode": "Tryb"
         }

@@ -23,6 +23,7 @@ from .const import (
     CONF_MODE,
     CONF_STATE_TOPIC,
     CONF_SYNC_INTERVAL,
+    CONF_TRANSITION,
     DEFAULT_BRIGHTNESS_LEVELS,
     DEFAULT_COMMAND_TOPIC,
     DEFAULT_LED_COUNT,
@@ -32,6 +33,7 @@ from .const import (
     DEFAULT_NAME,
     DEFAULT_STATE_TOPIC,
     DEFAULT_SYNC_INTERVAL,
+    DEFAULT_TRANSITION,
     DOMAIN,
     MODE_OPTIONS,
 )
@@ -81,6 +83,15 @@ class LgMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             mode=selector.NumberSelectorMode.SLIDER,
                         )
                     ),
+                    vol.Required(CONF_TRANSITION, default=DEFAULT_TRANSITION): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0.0,
+                            max=10.0,
+                            step=0.05,
+                            unit_of_measurement="s",
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
                     vol.Required(CONF_ENABLE_STATE_SENSOR, default=True): bool,
                     vol.Required(
                         CONF_MODE, default=DEFAULT_MODE
@@ -111,6 +122,7 @@ class LgMonitorOptionsFlow(config_entries.OptionsFlow):
             CONF_LED_COUNT: existing.get(CONF_LED_COUNT, DEFAULT_LED_COUNT),
             CONF_BRIGHTNESS_LEVELS: existing.get(CONF_BRIGHTNESS_LEVELS, DEFAULT_BRIGHTNESS_LEVELS),
             CONF_SYNC_INTERVAL: existing.get(CONF_SYNC_INTERVAL, DEFAULT_SYNC_INTERVAL),
+            CONF_TRANSITION: existing.get(CONF_TRANSITION, DEFAULT_TRANSITION),
             CONF_ENABLE_STATE_SENSOR: existing.get(CONF_ENABLE_STATE_SENSOR, True),
             CONF_MODE: existing.get(CONF_MODE, DEFAULT_MODE),
         }
@@ -142,6 +154,7 @@ class LgMonitorOptionsFlow(config_entries.OptionsFlow):
             self._options[CONF_SYNC_INTERVAL] = float(
                 data.get(CONF_SYNC_INTERVAL, DEFAULT_SYNC_INTERVAL)
             )
+            self._options[CONF_TRANSITION] = float(data.get(CONF_TRANSITION, DEFAULT_TRANSITION))
             self._options[CONF_ENABLE_STATE_SENSOR] = bool(
                 data.get(CONF_ENABLE_STATE_SENSOR, True)
             )
@@ -182,6 +195,18 @@ class LgMonitorOptionsFlow(config_entries.OptionsFlow):
                         selector.NumberSelectorConfig(
                             min=0.0,
                             max=5.0,
+                            step=0.05,
+                            unit_of_measurement="s",
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(
+                        CONF_TRANSITION,
+                        default=self._options.get(CONF_TRANSITION, DEFAULT_TRANSITION),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0.0,
+                            max=10.0,
                             step=0.05,
                             unit_of_measurement="s",
                             mode=selector.NumberSelectorMode.SLIDER,
