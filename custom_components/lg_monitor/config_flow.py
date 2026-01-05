@@ -108,7 +108,11 @@ class LgMonitorOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         return self.async_show_menu(
             step_id="init",
-            menu_options=["settings", "groups", "finish"],
+            menu_options={
+                "settings": "Settings",
+                "groups": "Groups",
+                "finish": "Save",
+            },
         )
 
     async def async_step_settings(self, user_input: dict[str, Any] | None = None) -> FlowResult:
@@ -174,7 +178,13 @@ class LgMonitorOptionsFlow(config_entries.OptionsFlow):
     async def async_step_groups(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         return self.async_show_menu(
             step_id="groups",
-            menu_options=["add_group", "edit_group", "remove_group", "finish", "back"],
+            menu_options={
+                "add_group": "Add group",
+                "edit_group": "Edit group",
+                "remove_group": "Remove group",
+                "finish": "Save",
+                "back": "Back",
+            },
         )
 
     async def async_step_add_group(self, user_input: dict[str, Any] | None = None) -> FlowResult:
