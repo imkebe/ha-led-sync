@@ -6,7 +6,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN, PLATFORMS
-from .coordinator import LgMonitorCoordinator
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -17,6 +16,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Create configured entities and MQTT subscriptions."""
+    from .coordinator import LgMonitorCoordinator
+
     hass.data.setdefault(DOMAIN, {})
     coordinator = LgMonitorCoordinator(hass, entry)
     await coordinator.async_setup()
@@ -27,6 +28,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    from .coordinator import LgMonitorCoordinator
+
     coordinator: LgMonitorCoordinator | None = hass.data[DOMAIN].pop(entry.entry_id, None)
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if coordinator:
