@@ -12,6 +12,7 @@
           "led_out_topic": "LED output topic",
           "led_count": "LED count",
           "brightness_levels": "Brightness steps",
+          "sync_interval": "Update interval",
           "enable_state_sensor": "Create LED frame sensor",
           "mode": "Mode"
         }
@@ -47,6 +48,7 @@
           "led_out_topic": "LED output topic",
           "led_count": "LED count",
           "brightness_levels": "Brightness steps",
+          "sync_interval": "Update interval",
           "enable_state_sensor": "Create LED frame sensor",
           "mode": "Mode"
         }

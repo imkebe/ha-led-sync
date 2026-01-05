@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 import random
+import time
 from typing import Any, Iterable, Tuple
 
 from homeassistant.components import mqtt
@@ -27,6 +29,7 @@ from .const import (
     CONF_LED_OUT_TOPIC,
     CONF_MODE,
     CONF_STATE_TOPIC,
+    CONF_SYNC_INTERVAL,
     DEFAULT_BRIGHTNESS_LEVELS,
     DEFAULT_COMMAND_TOPIC,
     DEFAULT_LED_COUNT,
@@ -34,6 +37,7 @@ from .const import (
     DEFAULT_LED_OUT_TOPIC,
     DEFAULT_MODE,
     DEFAULT_STATE_TOPIC,
+    DEFAULT_SYNC_INTERVAL,
     DOMAIN,
     MODE_BROADCAST,
     MODE_LISTEN,
@@ -71,6 +75,7 @@ class LgMonitorCoordinator:
         self.entry = entry
         self._frame_unsub: Callable[[], None] | None = None
         self._state_listener_unsub: Callable[[], None] | None = None
+        self._broadcast_pending: asyncio.Task | None = None
         self._frame: LgFrameState | None = None
         self._rgb_command: tuple[int, int, int] | None = None
         self._brightness_level: int | None = None
@@ -82,6 +87,9 @@ class LgMonitorCoordinator:
         self._brightness_levels = self._get_entry_value(
             CONF_BRIGHTNESS_LEVELS, DEFAULT_BRIGHTNESS_LEVELS
         )
+        self._sync_interval = max(
+            0.0, float(self._get_entry_value(CONF_SYNC_INTERVAL, DEFAULT_SYNC_INTERVAL))
+        )
         self._state_enabled = self._get_entry_value(CONF_ENABLE_STATE_SENSOR, True)
         self._mode = self._get_entry_value(CONF_MODE, DEFAULT_MODE)
         self._groups = self._normalise_groups(self._get_entry_value(CONF_GROUPS, []))
@@ -90,6 +98,9 @@ class LgMonitorCoordinator:
         self._groups_signal = f"{SIGNAL_GROUPS}_{entry.entry_id}"
         self._group_rgb: list[tuple[int, int, int] | None] = [None] * len(self._groups)
         self._group_brightness: list[int | None] = [None] * len(self._groups)
+        self._last_listen_update: list[float] = [0.0] * len(self._groups)
+        self._last_broadcast_publish: float = 0.0
+        self._last_groups_signal: float = 0.0
 
     def _get_entry_value(self, key: str, default: Any) -> Any:
         if key in self.entry.options:
@@ -140,6 +151,10 @@ class LgMonitorCoordinator:
     @property
     def brightness_levels(self) -> int:
         return max(1, self._brightness_levels)
+
+    @property
+    def sync_interval(self) -> float:
+        return float(self._sync_interval)
 
     @property
     def state_enabled(self) -> bool:
@@ -199,7 +214,7 @@ class LgMonitorCoordinator:
         for entity_id in group.entities:
             await self._call_light(entity_id, rgb, brightness=brightness)
         self._set_group_state(group_index, rgb, brightness=brightness)
-        dispatcher.async_dispatcher_send(self.hass, self._groups_signal)
+        self._dispatch_groups_signal(time.monotonic(), force=True)
 
     async def async_turn_off_group(self, group_index: int) -> None:
         if group_index < 0 or group_index >= len(self._groups):
@@ -210,7 +225,7 @@ class LgMonitorCoordinator:
                 "light", "turn_off", {"entity_id": entity_id}, blocking=False
             )
         self._set_group_state(group_index, (0, 0, 0), brightness=0)
-        dispatcher.async_dispatcher_send(self.hass, self._groups_signal)
+        self._dispatch_groups_signal(time.monotonic(), force=True)
 
     async def async_setup(self) -> None:
         """Start listening for incoming frames and state changes."""
@@ -226,7 +241,7 @@ class LgMonitorCoordinator:
         if self._mode == MODE_BROADCAST and self._groups:
             await self._setup_broadcast_listener()
             self._update_group_states_from_lights()
-            dispatcher.async_dispatcher_send(self.hass, self._groups_signal)
+            self._dispatch_groups_signal(time.monotonic(), force=True)
 
     async def async_unload(self) -> None:
         """Tear down MQTT subscriptions."""
@@ -236,9 +251,13 @@ class LgMonitorCoordinator:
         if self._state_listener_unsub:
             self._state_listener_unsub()
             self._state_listener_unsub = None
+        if self._broadcast_pending and not self._broadcast_pending.done():
+            self._broadcast_pending.cancel()
+        self._broadcast_pending = None
         self._frame = None
         self._group_rgb = []
         self._group_brightness = []
+        self._last_listen_update = []
 
     async def async_publish_colour(
         self,
@@ -285,7 +304,7 @@ class LgMonitorCoordinator:
 
         @callback
         def _state_change(_event) -> None:
-            self.hass.async_create_task(self._handle_broadcast_state_change())
+            self._schedule_broadcast_publish()
 
         self._state_listener_unsub = async_track_state_change_event(
             self.hass, list(targets), _state_change
@@ -330,6 +349,8 @@ class LgMonitorCoordinator:
             return
         if not colours:
             return
+        now = time.monotonic()
+        interval = self._sync_interval
         rgb_frame = [self._hex_to_rgb(col) for col in colours]
         for group_index, group in enumerate(self._groups):
             led_indices = [idx for idx in group.led_indices if idx < len(rgb_frame)]
@@ -341,9 +362,11 @@ class LgMonitorCoordinator:
                 group_colour = self._aggregate_colour(subset, "average")
                 if group_colour:
                     self._set_group_state(group_index, group_colour)
-                for entity_id, led_idx in zip(group.entities, led_indices):
-                    colour = rgb_frame[led_idx]
-                    await self._call_light(entity_id, colour)
+                if interval <= 0 or now - self._last_listen_update[group_index] >= interval:
+                    self._last_listen_update[group_index] = now
+                    for entity_id, led_idx in zip(group.entities, led_indices):
+                        colour = rgb_frame[led_idx]
+                        await self._call_light(entity_id, colour)
                 continue
             subset = [rgb_frame[idx] for idx in led_indices]
             colour = self._aggregate_colour(subset, group.strategy)
@@ -351,21 +374,39 @@ class LgMonitorCoordinator:
                 self._set_group_state(group_index, None)
                 continue
             self._set_group_state(group_index, colour)
-            for entity_id in group.entities:
-                await self._call_light(entity_id, colour)
-        dispatcher.async_dispatcher_send(self.hass, self._groups_signal)
+            if interval <= 0 or now - self._last_listen_update[group_index] >= interval:
+                self._last_listen_update[group_index] = now
+                for entity_id in group.entities:
+                    await self._call_light(entity_id, colour)
+        self._dispatch_groups_signal(now)
 
-    async def _handle_broadcast_state_change(self) -> None:
+    def _schedule_broadcast_publish(self) -> None:
+        if self._broadcast_pending and not self._broadcast_pending.done():
+            return
+        self._broadcast_pending = self.hass.async_create_task(self._async_debounced_broadcast())
+
+    async def _async_debounced_broadcast(self) -> None:
+        interval = self._sync_interval
+        if interval > 0:
+            now = time.monotonic()
+            delay = interval - (now - self._last_broadcast_publish)
+            if delay > 0:
+                await asyncio.sleep(delay)
+        await self._publish_broadcast_frame()
+
+    async def _publish_broadcast_frame(self) -> None:
         if self._mode != MODE_BROADCAST or not self._groups:
             return
         if not self._led_out_topic:
             return
         self._update_group_states_from_lights()
-        dispatcher.async_dispatcher_send(self.hass, self._groups_signal)
+        now = time.monotonic()
+        self._dispatch_groups_signal(now)
         frame = self._build_frame_from_groups()
         if not frame:
             return
         await self._publish_frame_bytes(frame)
+        self._last_broadcast_publish = time.monotonic()
 
     def _build_frame_from_groups(self) -> list[str]:
         led_count = max(1, int(self._led_count))
@@ -505,3 +546,9 @@ class LgMonitorCoordinator:
                 self._set_group_state(group_index, None)
                 continue
             self._set_group_state(group_index, colour)
+
+    def _dispatch_groups_signal(self, now: float, *, force: bool = False) -> None:
+        interval = self._sync_interval
+        if force or interval <= 0 or now - self._last_groups_signal >= interval:
+            self._last_groups_signal = now
+            dispatcher.async_dispatcher_send(self.hass, self._groups_signal)

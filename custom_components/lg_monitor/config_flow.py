@@ -22,6 +22,7 @@ from .const import (
     CONF_LED_OUT_TOPIC,
     CONF_MODE,
     CONF_STATE_TOPIC,
+    CONF_SYNC_INTERVAL,
     DEFAULT_BRIGHTNESS_LEVELS,
     DEFAULT_COMMAND_TOPIC,
     DEFAULT_LED_COUNT,
@@ -30,6 +31,7 @@ from .const import (
     DEFAULT_MODE,
     DEFAULT_NAME,
     DEFAULT_STATE_TOPIC,
+    DEFAULT_SYNC_INTERVAL,
     DOMAIN,
     MODE_OPTIONS,
 )
@@ -70,6 +72,15 @@ class LgMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(
                         CONF_BRIGHTNESS_LEVELS, default=DEFAULT_BRIGHTNESS_LEVELS
                     ): vol.All(int, vol.Range(min=1, max=255)),
+                    vol.Required(CONF_SYNC_INTERVAL, default=DEFAULT_SYNC_INTERVAL): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0.0,
+                            max=5.0,
+                            step=0.05,
+                            unit_of_measurement="s",
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
                     vol.Required(CONF_ENABLE_STATE_SENSOR, default=True): bool,
                     vol.Required(
                         CONF_MODE, default=DEFAULT_MODE
@@ -99,6 +110,7 @@ class LgMonitorOptionsFlow(config_entries.OptionsFlow):
             CONF_LED_OUT_TOPIC: existing.get(CONF_LED_OUT_TOPIC, DEFAULT_LED_OUT_TOPIC),
             CONF_LED_COUNT: existing.get(CONF_LED_COUNT, DEFAULT_LED_COUNT),
             CONF_BRIGHTNESS_LEVELS: existing.get(CONF_BRIGHTNESS_LEVELS, DEFAULT_BRIGHTNESS_LEVELS),
+            CONF_SYNC_INTERVAL: existing.get(CONF_SYNC_INTERVAL, DEFAULT_SYNC_INTERVAL),
             CONF_ENABLE_STATE_SENSOR: existing.get(CONF_ENABLE_STATE_SENSOR, True),
             CONF_MODE: existing.get(CONF_MODE, DEFAULT_MODE),
         }
@@ -126,6 +138,9 @@ class LgMonitorOptionsFlow(config_entries.OptionsFlow):
             self._options[CONF_LED_COUNT] = int(data.get(CONF_LED_COUNT, DEFAULT_LED_COUNT))
             self._options[CONF_BRIGHTNESS_LEVELS] = int(
                 data.get(CONF_BRIGHTNESS_LEVELS, DEFAULT_BRIGHTNESS_LEVELS)
+            )
+            self._options[CONF_SYNC_INTERVAL] = float(
+                data.get(CONF_SYNC_INTERVAL, DEFAULT_SYNC_INTERVAL)
             )
             self._options[CONF_ENABLE_STATE_SENSOR] = bool(
                 data.get(CONF_ENABLE_STATE_SENSOR, True)
@@ -160,6 +175,18 @@ class LgMonitorOptionsFlow(config_entries.OptionsFlow):
                         CONF_BRIGHTNESS_LEVELS,
                         default=self._options.get(CONF_BRIGHTNESS_LEVELS, DEFAULT_BRIGHTNESS_LEVELS),
                     ): vol.All(int, vol.Range(min=1, max=255)),
+                    vol.Required(
+                        CONF_SYNC_INTERVAL,
+                        default=self._options.get(CONF_SYNC_INTERVAL, DEFAULT_SYNC_INTERVAL),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0.0,
+                            max=5.0,
+                            step=0.05,
+                            unit_of_measurement="s",
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
                     vol.Required(
                         CONF_ENABLE_STATE_SENSOR,
                         default=self._options.get(CONF_ENABLE_STATE_SENSOR, True),
