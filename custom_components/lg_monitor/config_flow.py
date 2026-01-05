@@ -14,7 +14,12 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_BRIGHTNESS_LEVELS,
+    CONF_BRIGHTNESS_CUTOFF,
+    CONF_BRIGHTNESS_GAIN,
     CONF_COMMAND_TOPIC,
+    CONF_CUTOFF_BLUE,
+    CONF_CUTOFF_GREEN,
+    CONF_CUTOFF_RED,
     CONF_ENABLE_STATE_SENSOR,
     CONF_GROUPS,
     CONF_LED_COUNT,
@@ -23,16 +28,25 @@ from .const import (
     CONF_MODE,
     CONF_STATE_TOPIC,
     CONF_SYNC_INTERVAL,
+    CONF_SATURATION_GAIN,
+    CONF_TEMPERATURE_SHIFT,
     CONF_TRANSITION,
     DEFAULT_BRIGHTNESS_LEVELS,
+    DEFAULT_BRIGHTNESS_CUTOFF,
+    DEFAULT_BRIGHTNESS_GAIN,
     DEFAULT_COMMAND_TOPIC,
+    DEFAULT_CUTOFF_BLUE,
+    DEFAULT_CUTOFF_GREEN,
+    DEFAULT_CUTOFF_RED,
     DEFAULT_LED_COUNT,
     DEFAULT_LED_IN_TOPIC,
     DEFAULT_LED_OUT_TOPIC,
     DEFAULT_MODE,
     DEFAULT_NAME,
+    DEFAULT_SATURATION_GAIN,
     DEFAULT_STATE_TOPIC,
     DEFAULT_SYNC_INTERVAL,
+    DEFAULT_TEMPERATURE_SHIFT,
     DEFAULT_TRANSITION,
     DOMAIN,
     MODE_OPTIONS,
@@ -92,6 +106,66 @@ class LgMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             mode=selector.NumberSelectorMode.SLIDER,
                         )
                     ),
+                    vol.Required(
+                        CONF_BRIGHTNESS_CUTOFF, default=DEFAULT_BRIGHTNESS_CUTOFF
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=255,
+                            step=1,
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(CONF_CUTOFF_RED, default=DEFAULT_CUTOFF_RED): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=255,
+                            step=1,
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(CONF_CUTOFF_GREEN, default=DEFAULT_CUTOFF_GREEN): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=255,
+                            step=1,
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(CONF_CUTOFF_BLUE, default=DEFAULT_CUTOFF_BLUE): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=255,
+                            step=1,
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(CONF_BRIGHTNESS_GAIN, default=DEFAULT_BRIGHTNESS_GAIN): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0.0,
+                            max=3.0,
+                            step=0.05,
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(CONF_SATURATION_GAIN, default=DEFAULT_SATURATION_GAIN): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0.0,
+                            max=3.0,
+                            step=0.05,
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(
+                        CONF_TEMPERATURE_SHIFT, default=DEFAULT_TEMPERATURE_SHIFT
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=-1.0,
+                            max=1.0,
+                            step=0.05,
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
                     vol.Required(CONF_ENABLE_STATE_SENSOR, default=True): bool,
                     vol.Required(
                         CONF_MODE, default=DEFAULT_MODE
@@ -123,6 +197,17 @@ class LgMonitorOptionsFlow(config_entries.OptionsFlow):
             CONF_BRIGHTNESS_LEVELS: existing.get(CONF_BRIGHTNESS_LEVELS, DEFAULT_BRIGHTNESS_LEVELS),
             CONF_SYNC_INTERVAL: existing.get(CONF_SYNC_INTERVAL, DEFAULT_SYNC_INTERVAL),
             CONF_TRANSITION: existing.get(CONF_TRANSITION, DEFAULT_TRANSITION),
+            CONF_BRIGHTNESS_CUTOFF: existing.get(
+                CONF_BRIGHTNESS_CUTOFF, DEFAULT_BRIGHTNESS_CUTOFF
+            ),
+            CONF_CUTOFF_RED: existing.get(CONF_CUTOFF_RED, DEFAULT_CUTOFF_RED),
+            CONF_CUTOFF_GREEN: existing.get(CONF_CUTOFF_GREEN, DEFAULT_CUTOFF_GREEN),
+            CONF_CUTOFF_BLUE: existing.get(CONF_CUTOFF_BLUE, DEFAULT_CUTOFF_BLUE),
+            CONF_BRIGHTNESS_GAIN: existing.get(CONF_BRIGHTNESS_GAIN, DEFAULT_BRIGHTNESS_GAIN),
+            CONF_SATURATION_GAIN: existing.get(CONF_SATURATION_GAIN, DEFAULT_SATURATION_GAIN),
+            CONF_TEMPERATURE_SHIFT: existing.get(
+                CONF_TEMPERATURE_SHIFT, DEFAULT_TEMPERATURE_SHIFT
+            ),
             CONF_ENABLE_STATE_SENSOR: existing.get(CONF_ENABLE_STATE_SENSOR, True),
             CONF_MODE: existing.get(CONF_MODE, DEFAULT_MODE),
         }
@@ -155,6 +240,23 @@ class LgMonitorOptionsFlow(config_entries.OptionsFlow):
                 data.get(CONF_SYNC_INTERVAL, DEFAULT_SYNC_INTERVAL)
             )
             self._options[CONF_TRANSITION] = float(data.get(CONF_TRANSITION, DEFAULT_TRANSITION))
+            self._options[CONF_BRIGHTNESS_CUTOFF] = int(
+                data.get(CONF_BRIGHTNESS_CUTOFF, DEFAULT_BRIGHTNESS_CUTOFF)
+            )
+            self._options[CONF_CUTOFF_RED] = int(data.get(CONF_CUTOFF_RED, DEFAULT_CUTOFF_RED))
+            self._options[CONF_CUTOFF_GREEN] = int(
+                data.get(CONF_CUTOFF_GREEN, DEFAULT_CUTOFF_GREEN)
+            )
+            self._options[CONF_CUTOFF_BLUE] = int(data.get(CONF_CUTOFF_BLUE, DEFAULT_CUTOFF_BLUE))
+            self._options[CONF_BRIGHTNESS_GAIN] = float(
+                data.get(CONF_BRIGHTNESS_GAIN, DEFAULT_BRIGHTNESS_GAIN)
+            )
+            self._options[CONF_SATURATION_GAIN] = float(
+                data.get(CONF_SATURATION_GAIN, DEFAULT_SATURATION_GAIN)
+            )
+            self._options[CONF_TEMPERATURE_SHIFT] = float(
+                data.get(CONF_TEMPERATURE_SHIFT, DEFAULT_TEMPERATURE_SHIFT)
+            )
             self._options[CONF_ENABLE_STATE_SENSOR] = bool(
                 data.get(CONF_ENABLE_STATE_SENSOR, True)
             )
@@ -209,6 +311,83 @@ class LgMonitorOptionsFlow(config_entries.OptionsFlow):
                             max=10.0,
                             step=0.05,
                             unit_of_measurement="s",
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(
+                        CONF_BRIGHTNESS_CUTOFF,
+                        default=self._options.get(CONF_BRIGHTNESS_CUTOFF, DEFAULT_BRIGHTNESS_CUTOFF),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=255,
+                            step=1,
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(
+                        CONF_CUTOFF_RED,
+                        default=self._options.get(CONF_CUTOFF_RED, DEFAULT_CUTOFF_RED),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=255,
+                            step=1,
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(
+                        CONF_CUTOFF_GREEN,
+                        default=self._options.get(CONF_CUTOFF_GREEN, DEFAULT_CUTOFF_GREEN),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=255,
+                            step=1,
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(
+                        CONF_CUTOFF_BLUE,
+                        default=self._options.get(CONF_CUTOFF_BLUE, DEFAULT_CUTOFF_BLUE),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=255,
+                            step=1,
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(
+                        CONF_BRIGHTNESS_GAIN,
+                        default=self._options.get(CONF_BRIGHTNESS_GAIN, DEFAULT_BRIGHTNESS_GAIN),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0.0,
+                            max=3.0,
+                            step=0.05,
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(
+                        CONF_SATURATION_GAIN,
+                        default=self._options.get(CONF_SATURATION_GAIN, DEFAULT_SATURATION_GAIN),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0.0,
+                            max=3.0,
+                            step=0.05,
+                            mode=selector.NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                    vol.Required(
+                        CONF_TEMPERATURE_SHIFT,
+                        default=self._options.get(CONF_TEMPERATURE_SHIFT, DEFAULT_TEMPERATURE_SHIFT),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=-1.0,
+                            max=1.0,
+                            step=0.05,
                             mode=selector.NumberSelectorMode.SLIDER,
                         )
                     ),

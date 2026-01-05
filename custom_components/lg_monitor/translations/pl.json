@@ -14,6 +14,13 @@
           "brightness_levels": "Kroki jasności",
           "sync_interval": "Interwał aktualizacji",
           "transition": "Czas przejścia",
+          "brightness_cutoff": "Próg wyłączenia",
+          "cutoff_red": "Próg czerwieni",
+          "cutoff_green": "Próg zieleni",
+          "cutoff_blue": "Próg niebieskiego",
+          "brightness_gain": "Wzmocnienie jasności",
+          "saturation_gain": "Wzmocnienie nasycenia",
+          "temperature_shift": "Przesunięcie ciepło/zimno",
           "enable_state_sensor": "Utwórz czujnik ramki LED",
           "mode": "Tryb"
         }
@@ -51,6 +58,13 @@
           "brightness_levels": "Kroki jasności",
           "sync_interval": "Interwał aktualizacji",
           "transition": "Czas przejścia",
+          "brightness_cutoff": "Próg wyłączenia",
+          "cutoff_red": "Próg czerwieni",
+          "cutoff_green": "Próg zieleni",
+          "cutoff_blue": "Próg niebieskiego",
+          "brightness_gain": "Wzmocnienie jasności",
+          "saturation_gain": "Wzmocnienie nasycenia",
+          "temperature_shift": "Przesunięcie ciepło/zimno",
           "enable_state_sensor": "Utwórz czujnik ramki LED",
           "mode": "Tryb"
         }

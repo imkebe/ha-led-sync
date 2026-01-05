@@ -14,6 +14,13 @@
           "brightness_levels": "Brightness steps",
           "sync_interval": "Update interval",
           "transition": "Transition time",
+          "brightness_cutoff": "Off threshold",
+          "cutoff_red": "Red cutoff",
+          "cutoff_green": "Green cutoff",
+          "cutoff_blue": "Blue cutoff",
+          "brightness_gain": "Brightness gain",
+          "saturation_gain": "Saturation gain",
+          "temperature_shift": "Warm/Cool shift",
           "enable_state_sensor": "Create LED frame sensor",
           "mode": "Mode"
         }
@@ -51,6 +58,13 @@
           "brightness_levels": "Brightness steps",
           "sync_interval": "Update interval",
           "transition": "Transition time",
+          "brightness_cutoff": "Off threshold",
+          "cutoff_red": "Red cutoff",
+          "cutoff_green": "Green cutoff",
+          "cutoff_blue": "Blue cutoff",
+          "brightness_gain": "Brightness gain",
+          "saturation_gain": "Saturation gain",
+          "temperature_shift": "Warm/Cool shift",
           "enable_state_sensor": "Create LED frame sensor",
           "mode": "Mode"
         }

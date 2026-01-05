@@ -26,7 +26,12 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_BRIGHTNESS_LEVELS,
+    CONF_BRIGHTNESS_CUTOFF,
+    CONF_BRIGHTNESS_GAIN,
     CONF_COMMAND_TOPIC,
+    CONF_CUTOFF_BLUE,
+    CONF_CUTOFF_GREEN,
+    CONF_CUTOFF_RED,
     CONF_ENABLE_STATE_SENSOR,
     CONF_GROUPS,
     CONF_LED_COUNT,
@@ -35,15 +40,24 @@ from .const import (
     CONF_MODE,
     CONF_STATE_TOPIC,
     CONF_SYNC_INTERVAL,
+    CONF_SATURATION_GAIN,
+    CONF_TEMPERATURE_SHIFT,
     CONF_TRANSITION,
     DEFAULT_BRIGHTNESS_LEVELS,
+    DEFAULT_BRIGHTNESS_CUTOFF,
+    DEFAULT_BRIGHTNESS_GAIN,
     DEFAULT_COMMAND_TOPIC,
+    DEFAULT_CUTOFF_BLUE,
+    DEFAULT_CUTOFF_GREEN,
+    DEFAULT_CUTOFF_RED,
     DEFAULT_LED_COUNT,
     DEFAULT_LED_IN_TOPIC,
     DEFAULT_LED_OUT_TOPIC,
     DEFAULT_MODE,
     DEFAULT_STATE_TOPIC,
     DEFAULT_SYNC_INTERVAL,
+    DEFAULT_SATURATION_GAIN,
+    DEFAULT_TEMPERATURE_SHIFT,
     DEFAULT_TRANSITION,
     DOMAIN,
     MODE_BROADCAST,
@@ -99,6 +113,44 @@ class LgMonitorCoordinator:
         )
         self._transition = max(
             0.0, float(self._get_entry_value(CONF_TRANSITION, DEFAULT_TRANSITION))
+        )
+        self._brightness_cutoff = max(
+            0,
+            min(
+                255,
+                int(
+                    self._get_entry_value(
+                        CONF_BRIGHTNESS_CUTOFF, DEFAULT_BRIGHTNESS_CUTOFF
+                    )
+                ),
+            ),
+        )
+        self._cutoff_red = max(
+            0,
+            min(255, int(self._get_entry_value(CONF_CUTOFF_RED, DEFAULT_CUTOFF_RED))),
+        )
+        self._cutoff_green = max(
+            0,
+            min(255, int(self._get_entry_value(CONF_CUTOFF_GREEN, DEFAULT_CUTOFF_GREEN))),
+        )
+        self._cutoff_blue = max(
+            0,
+            min(255, int(self._get_entry_value(CONF_CUTOFF_BLUE, DEFAULT_CUTOFF_BLUE))),
+        )
+        self._brightness_gain = max(
+            0.0, float(self._get_entry_value(CONF_BRIGHTNESS_GAIN, DEFAULT_BRIGHTNESS_GAIN))
+        )
+        self._saturation_gain = max(
+            0.0, float(self._get_entry_value(CONF_SATURATION_GAIN, DEFAULT_SATURATION_GAIN))
+        )
+        self._temperature_shift = max(
+            -1.0,
+            min(
+                1.0,
+                float(
+                    self._get_entry_value(CONF_TEMPERATURE_SHIFT, DEFAULT_TEMPERATURE_SHIFT)
+                ),
+            ),
         )
         self._state_enabled = self._get_entry_value(CONF_ENABLE_STATE_SENSOR, True)
         self._mode = self._get_entry_value(CONF_MODE, DEFAULT_MODE)
@@ -171,6 +223,34 @@ class LgMonitorCoordinator:
         return float(self._transition)
 
     @property
+    def brightness_cutoff(self) -> int:
+        return int(self._brightness_cutoff)
+
+    @property
+    def cutoff_red(self) -> int:
+        return int(self._cutoff_red)
+
+    @property
+    def cutoff_green(self) -> int:
+        return int(self._cutoff_green)
+
+    @property
+    def cutoff_blue(self) -> int:
+        return int(self._cutoff_blue)
+
+    @property
+    def brightness_gain(self) -> float:
+        return float(self._brightness_gain)
+
+    @property
+    def saturation_gain(self) -> float:
+        return float(self._saturation_gain)
+
+    @property
+    def temperature_shift(self) -> float:
+        return float(self._temperature_shift)
+
+    @property
     def state_enabled(self) -> bool:
         return bool(self._led_in_topic and self._state_enabled)
 
@@ -226,7 +306,7 @@ class LgMonitorCoordinator:
             return
         group = self._groups[group_index]
         for entity_id in group.entities:
-            await self._call_light(entity_id, rgb, brightness=brightness)
+            await self._call_light(entity_id, rgb, brightness=brightness, apply_calibration=False)
         self._set_group_state(group_index, rgb, brightness=brightness)
         self._dispatch_groups_signal(time.monotonic(), force=True)
 
@@ -234,13 +314,7 @@ class LgMonitorCoordinator:
         if group_index < 0 or group_index >= len(self._groups):
             return
         group = self._groups[group_index]
-        service_data = {"entity_id": group.entities}
-        if self._transition > 0:
-            service_data[ATTR_TRANSITION] = self._transition
-        for entity_id in group.entities:
-            await self.hass.services.async_call(
-                "light", "turn_off", service_data | {"entity_id": entity_id}, blocking=False
-            )
+        await self._turn_off_light(group.entities, transition=self._transition)
         self._set_group_state(group_index, (0, 0, 0), brightness=0)
         self._dispatch_groups_signal(time.monotonic(), force=True)
 
@@ -375,26 +449,28 @@ class LgMonitorCoordinator:
                 self._set_group_state(group_index, None)
                 continue
             if group.strategy == "one_to_one":
-                subset = [rgb_frame[idx] for idx in led_indices]
-                group_colour = self._aggregate_colour(subset, "average")
-                if group_colour:
-                    self._set_group_state(group_index, group_colour)
+                processed = [self.apply_calibration(rgb_frame[idx]) for idx in led_indices]
+                group_colour = self._aggregate_colour(processed, "average")
+                if group_colour is None:
+                    self._set_group_state(group_index, None)
+                else:
+                    self._set_group_state_from_intensity(group_index, group_colour)
                 if interval <= 0 or now - self._last_listen_update[group_index] >= interval:
                     self._last_listen_update[group_index] = now
-                    for entity_id, led_idx in zip(group.entities, led_indices):
-                        colour = rgb_frame[led_idx]
-                        await self._call_light(entity_id, colour)
+                    for entity_id, colour in zip(group.entities, processed):
+                        await self._call_light_intensity(entity_id, colour)
                 continue
             subset = [rgb_frame[idx] for idx in led_indices]
             colour = self._aggregate_colour(subset, group.strategy)
             if not colour:
                 self._set_group_state(group_index, None)
                 continue
-            self._set_group_state(group_index, colour)
+            processed_colour = self.apply_calibration(colour)
+            self._set_group_state_from_intensity(group_index, processed_colour)
             if interval <= 0 or now - self._last_listen_update[group_index] >= interval:
                 self._last_listen_update[group_index] = now
                 for entity_id in group.entities:
-                    await self._call_light(entity_id, colour)
+                    await self._call_light_intensity(entity_id, processed_colour)
         self._dispatch_groups_signal(now)
 
     def _schedule_broadcast_publish(self) -> None:
@@ -466,28 +542,119 @@ class LgMonitorCoordinator:
             encoding=None,
         )
 
+    def apply_calibration(self, rgb: tuple[int, int, int]) -> tuple[int, int, int]:
+        """Apply user configured calibration before sending to lights."""
+        r = max(0, min(255, int(rgb[0])))
+        g = max(0, min(255, int(rgb[1])))
+        b = max(0, min(255, int(rgb[2])))
+
+        shift = self._temperature_shift
+        if shift:
+            if shift > 0:
+                r = round(r * (1 + shift))
+                b = round(b * (1 - shift))
+            else:
+                cool = abs(shift)
+                r = round(r * (1 - cool))
+                b = round(b * (1 + cool))
+            r = max(0, min(255, int(r)))
+            b = max(0, min(255, int(b)))
+
+        h, s, v = color_util.color_RGB_to_hsv(r, g, b)
+        s = max(0.0, min(100.0, s * self._saturation_gain))
+        v = max(0.0, min(100.0, v * self._brightness_gain))
+        r, g, b = color_util.color_hsv_to_RGB(h, s, v)
+
+        if r < self._cutoff_red:
+            r = 0
+        if g < self._cutoff_green:
+            g = 0
+        if b < self._cutoff_blue:
+            b = 0
+
+        if self._brightness_cutoff and max(r, g, b) < self._brightness_cutoff:
+            return (0, 0, 0)
+
+        return (int(r), int(g), int(b))
+
+    def _rgb_intensity_to_service(self, rgb: tuple[int, int, int]) -> tuple[tuple[int, int, int], int]:
+        r = max(0, min(255, int(rgb[0])))
+        g = max(0, min(255, int(rgb[1])))
+        b = max(0, min(255, int(rgb[2])))
+        brightness = max(r, g, b)
+        if brightness <= 0:
+            return (0, 0, 0), 0
+        scale = 255 / brightness
+        rgb_norm = (
+            max(0, min(255, round(r * scale))),
+            max(0, min(255, round(g * scale))),
+            max(0, min(255, round(b * scale))),
+        )
+        return (int(rgb_norm[0]), int(rgb_norm[1]), int(rgb_norm[2])), int(brightness)
+
     async def _call_light(
         self,
         entity_id: str,
         colour: tuple[int, int, int],
         brightness: int | None = None,
         transition: float | None = None,
+        *,
+        apply_calibration: bool = True,
     ) -> None:
         if transition is None:
             transition = self._transition
-        if brightness is None:
-            brightness = self._rgb_to_brightness(colour)
-        service_data = {
-            "entity_id": entity_id,
-            ATTR_RGB_COLOR: colour,
-        }
-        if brightness:
-            service_data[ATTR_BRIGHTNESS] = brightness
+
+        if apply_calibration:
+            await self._call_light_intensity(
+                entity_id, self.apply_calibration(colour), transition=transition
+            )
+            return
+
+        if brightness is not None and int(brightness) <= 0:
+            await self._turn_off_light(entity_id, transition=transition)
+            return
+
+        service_data = {"entity_id": entity_id, ATTR_RGB_COLOR: colour}
+        if brightness is not None:
+            service_data[ATTR_BRIGHTNESS] = max(0, min(255, int(brightness)))
         if transition and transition > 0:
             service_data[ATTR_TRANSITION] = float(transition)
-        await self.hass.services.async_call(
-            "light", "turn_on", service_data, blocking=False
-        )
+        await self.hass.services.async_call("light", "turn_on", service_data, blocking=False)
+
+    async def _call_light_intensity(
+        self,
+        entity_id: str,
+        colour: tuple[int, int, int],
+        *,
+        transition: float | None = None,
+    ) -> None:
+        if transition is None:
+            transition = self._transition
+
+        rgb_norm, brightness = self._rgb_intensity_to_service(colour)
+        if brightness <= 0:
+            await self._turn_off_light(entity_id, transition=transition)
+            return
+
+        service_data = {
+            "entity_id": entity_id,
+            ATTR_RGB_COLOR: rgb_norm,
+            ATTR_BRIGHTNESS: brightness,
+        }
+        if transition and transition > 0:
+            service_data[ATTR_TRANSITION] = float(transition)
+        await self.hass.services.async_call("light", "turn_on", service_data, blocking=False)
+
+    async def _turn_off_light(
+        self,
+        entity_id: str | list[str],
+        *,
+        transition: float | None = None,
+    ) -> None:
+        data: dict[str, Any] = {"entity_id": entity_id}
+        if transition and transition > 0:
+            data[ATTR_TRANSITION] = float(transition)
+        await self.hass.services.async_call("light", "turn_off", data, blocking=False)
 
     def _aggregate_colour(
         self, colours: Iterable[tuple[int, int, int]], strategy: str
@@ -507,7 +674,7 @@ class LgMonitorCoordinator:
         return (r, g, b)
 
     def _rgb_to_brightness(self, colour: tuple[int, int, int]) -> int:
-        return max(1, min(255, max(colour)))
+        return max(0, min(255, max(colour)))
 
     def _hex_to_rgb(self, colour: str) -> tuple[int, int, int]:
         colour = colour.strip().lstrip("#").lower().rjust(6, "0")
@@ -549,11 +716,30 @@ class LgMonitorCoordinator:
             self._group_rgb[group_index] = None
             self._group_brightness[group_index] = None
             return
-        self._group_rgb[group_index] = rgb
+        self._group_rgb[group_index] = (
+            max(0, min(255, int(rgb[0]))),
+            max(0, min(255, int(rgb[1]))),
+            max(0, min(255, int(rgb[2]))),
+        )
         if brightness is None:
             self._group_brightness[group_index] = self._rgb_to_brightness(rgb)
         else:
             self._group_brightness[group_index] = max(0, min(255, int(brightness)))
+
+    def _set_group_state_from_intensity(
+        self,
+        group_index: int,
+        rgb: tuple[int, int, int] | None,
+    ) -> None:
+        if group_index < 0 or group_index >= len(self._group_rgb):
+            return
+        if rgb is None:
+            self._group_rgb[group_index] = None
+            self._group_brightness[group_index] = None
+            return
+        rgb_norm, brightness = self._rgb_intensity_to_service(rgb)
+        self._group_rgb[group_index] = rgb_norm
+        self._group_brightness[group_index] = brightness
 
     def _update_group_states_from_lights(self) -> None:
         for group_index, group in enumerate(self._groups):
@@ -567,7 +753,7 @@ class LgMonitorCoordinator:
             if colour is None:
                 self._set_group_state(group_index, None)
                 continue
-            self._set_group_state(group_index, colour)
+            self._set_group_state_from_intensity(group_index, colour)
 
     def _dispatch_groups_signal(self, now: float, *, force: bool = False) -> None:
         interval = self._sync_interval
