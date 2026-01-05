@@ -19,9 +19,26 @@
     }
   },
   "options": {
+    "error": {
+      "group_entities_required": "Select at least one light.",
+      "group_leds_required": "Enter one or more LED indexes.",
+      "group_name_required": "Enter a group name.",
+      "invalid_group": "Invalid group selected.",
+      "no_groups": "No groups have been configured yet.",
+      "one_to_one_mismatch": "For one-to-one mapping, number of lights must match LED indexes."
+    },
     "step": {
       "init": {
         "title": "LG Monitor options",
+        "description": "Adjust integration settings and manage groups.",
+        "menu_options": {
+          "settings": "Settings",
+          "groups": "Groups",
+          "finish": "Save"
+        }
+      },
+      "settings": {
+        "title": "LG Monitor settings",
         "description": "Adjust MQTT topics or disable the state sensor.",
         "data": {
           "command_topic": "Zen command topic",
@@ -31,19 +48,51 @@
           "led_count": "LED count",
           "brightness_levels": "Brightness steps",
           "enable_state_sensor": "Create LED frame sensor",
-          "mode": "Mode",
-          "group_1_name": "Group 1 name",
-          "group_1_entities": "Group 1 lights",
-          "group_1_leds": "Group 1 LED indexes",
-          "group_1_strategy": "Group 1 mapping",
-          "group_2_name": "Group 2 name",
-          "group_2_entities": "Group 2 lights",
-          "group_2_leds": "Group 2 LED indexes",
-          "group_2_strategy": "Group 2 mapping",
-          "group_3_name": "Group 3 name",
-          "group_3_entities": "Group 3 lights",
-          "group_3_leds": "Group 3 LED indexes",
-          "group_3_strategy": "Group 3 mapping"
+          "mode": "Mode"
+        }
+      },
+      "groups": {
+        "title": "Groups",
+        "description": "Manage LED/light mapping groups.",
+        "menu_options": {
+          "add_group": "Add group",
+          "edit_group": "Edit group",
+          "remove_group": "Remove group",
+          "back": "Back"
+        }
+      },
+      "add_group": {
+        "title": "Add group",
+        "description": "Create a new mapping group.",
+        "data": {
+          "group_name": "Group name",
+          "group_entities": "Lights",
+          "group_leds": "LED indexes",
+          "group_strategy": "Mapping"
+        }
+      },
+      "edit_group": {
+        "title": "Edit group",
+        "description": "Select a group to edit.",
+        "data": {
+          "group_index": "Group"
+        }
+      },
+      "edit_group_form": {
+        "title": "Edit group",
+        "description": "Update the group definition.",
+        "data": {
+          "group_name": "Group name",
+          "group_entities": "Lights",
+          "group_leds": "LED indexes",
+          "group_strategy": "Mapping"
+        }
+      },
+      "remove_group": {
+        "title": "Remove group",
+        "description": "Select a group to remove.",
+        "data": {
+          "group_index": "Group"
         }
       }
     }
